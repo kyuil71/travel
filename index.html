@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 전세계 가성비 여행 가이드</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700&display=swap');
+        body { font-family: 'Pretendard', sans-serif; }
+        .loading-shimmer {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900 min-h-screen">
+
+    <!-- Header -->
+    <header class="bg-white border-b sticky top-0 z-50 px-4 py-3 shadow-sm">
+        <div class="max-w-md mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                <h1 class="font-bold text-lg">AI 가성비 여행 가이드</h1>
+            </div>
+            <button onclick="refreshLocation()" class="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-gray-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path></svg>
+            </button>
+        </div>
+    </header>
+
+    <main class="max-w-md mx-auto p-4 pb-24">
+        <!-- Location Status -->
+        <div id="location-status" class="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6 flex flex-col gap-2">
+            <div class="flex items-center gap-3">
+                <div id="status-dot" class="animate-pulse bg-blue-400 w-2 h-2 rounded-full"></div>
+                <p id="status-text" class="text-sm text-blue-800 font-medium">위치 정보를 확인하고 있습니다...</p>
+            </div>
+            <p id="error-hint" class="text-xs text-red-500 hidden"></p>
+        </div>
+
+        <!-- Action Button -->
+        <button id="get-recommendations-btn" disabled 
+                onclick="getAIRecommendations()"
+                class="w-full bg-blue-600 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-200 disabled:bg-gray-300 disabled:shadow-none transition-all active:scale-95 mb-8">
+            주변 가성비 명소 추천받기
+        </button>
+
+        <!-- Results Section -->
+        <div id="results-container" class="space-y-6">
+            <div id="empty-state" class="text-center py-10">
+                <p class="text-gray-400">버튼을 누르면 현재 위치 기반으로<br>AI가 가성비 코스를 추천해 드립니다.</p>
+            </div>
+        </div>
+
+        <!-- Skeleton Loading -->
+        <div id="skeleton" class="hidden space-y-6">
+            <div class="bg-white rounded-2xl p-4 border border-gray-100 space-y-3">
+                <div class="loading-shimmer h-6 w-3/4 rounded"></div>
+                <div class="loading-shimmer h-4 w-1/2 rounded"></div>
+                <div class="loading-shimmer h-20 w-full rounded"></div>
+            </div>
+            <div class="bg-white rounded-2xl p-4 border border-gray-100 space-y-3">
+                <div class="loading-shimmer h-6 w-2/3 rounded"></div>
+                <div class="loading-shimmer h-4 w-1/3 rounded"></div>
+                <div class="loading-shimmer h-20 w-full rounded"></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Error Modal -->
+    <div id="error-modal" class="hidden fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-6">
+        <div class="bg-white rounded-2xl p-6 max-w-xs w-full text-center">
+            <h3 class="font-bold text-lg mb-2">알림</h3>
+            <p id="error-message" class="text-gray-600 text-sm mb-6">다시 시도해 주세요.</p>
+            <button onclick="closeModal()" class="w-full bg-gray-900 text-white py-3 rounded-xl font-bold">확인</button>
+        </div>
+    </div>
+
+    <script>
+        const apiKey = ""; 
+        let userLocation = null;
+
+        window.onload = () => {
+            refreshLocation();
+        };
+
+        function refreshLocation() {
+            const statusText = document.getElementById('status-text');
+            const statusDot = document.getElementById('status-dot');
+            const errorHint = document.getElementById('error-hint');
+            const btn = document.getElementById('get-recommendations-btn');
+            
+            statusText.innerText = "GPS 신호를 수신 중입니다...";
+            statusDot.className = "animate-pulse bg-blue-400 w-2 h-2 rounded-full";
+            errorHint.classList.add('hidden');
+            btn.disabled = true;
+
+            const options = {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+            };
+
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        userLocation = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude
+                        };
+                        statusText.innerText = `위치 확인 완료 (현재 시내 중심 기준)`;
+                        statusDot.className = "bg-green-500 w-2 h-2 rounded-full";
+                        btn.disabled = false;
+                    },
+                    (error) => {
+                        statusDot.className = "bg-red-500 w-2 h-2 rounded-full";
+                        btn.disabled = true;
+                        errorHint.classList.remove('hidden');
+                        
+                        switch(error.code) {
+                            case error.PERMISSION_DENIED:
+                                statusText.innerText = "위치 권한이 거부되었습니다.";
+                                errorHint.innerText = "브라우저 설정에서 위치 권한을 '허용'으로 변경해 주세요.";
+                                break;
+                            case error.POSITION_UNAVAILABLE:
+                                statusText.innerText = "위치 정보를 사용할 수 없습니다.";
+                                errorHint.innerText = "기기의 GPS가 켜져 있는지, 보안 연결(HTTPS) 상태인지 확인해 주세요.";
+                                break;
+                            case error.TIMEOUT:
+                                statusText.innerText = "위치 확인 시간 초과.";
+                                errorHint.innerText = "신호가 약합니다. 다시 시도해 주세요.";
+                                break;
+                            default:
+                                statusText.innerText = "알 수 없는 위치 오류.";
+                                break;
+                        }
+                    },
+                    options
+                );
+            } else {
+                statusText.innerText = "GPS 미지원 브라우저입니다.";
+            }
+        }
+
+        async function getAIRecommendations() {
+            if (!userLocation) return;
+
+            const resultsContainer = document.getElementById('results-container');
+            const skeleton = document.getElementById('skeleton');
+            const emptyState = document.getElementById('empty-state');
+            const btn = document.getElementById('get-recommendations-btn');
+
+            emptyState.classList.add('hidden');
+            skeleton.classList.remove('hidden');
+            resultsContainer.innerHTML = '';
+            btn.disabled = true;
+
+            const systemInstruction = `
+                당신은 전세계를 여행하는 한국인 가성비 여행 전문가입니다.
+                사용자의 현재 위도/경도 주변 약 1.5km 이내(도보 가능 거리)에서 관광지, 음식점, 카페를 총 5-7곳 추천하세요.
+                
+                추천 기준:
+                1. 가성비: 가격 대비 만족도가 높은 곳.
+                2. 한국인 취향: 한국 여행객들에게 특히 인기 있거나 입맛에 맞는 곳.
+                
+                출력 형식은 반드시 JSON 객체여야 하며, 다음 구조를 따르세요:
+                {
+                    "recommendations": [
+                        {
+                            "name": "장소 이름",
+                            "category": "관광/음식/카페",
+                            "features": "이곳의 특징 (설명)",
+                            "estimated_cost": "예상 소요 비용 (현지 화폐 및 원화 근사치)",
+                            "korean_popular_menu": "한국인에게 인기 있는 메뉴 (없으면 'N/A')",
+                            "distance_info": "도보 약 몇 분 거리"
+                        }
+                    ]
+                }
+            `;
+
+            const userQuery = `현재 내 위치는 위도 ${userLocation.lat}, 경도 ${userLocation.lng} 입니다. 주변에서 가성비 좋은 관광지와 맛집을 추천해 주세요.`;
+
+            try {
+                const response = await fetchWithRetry(
+                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{ parts: [{ text: userQuery }] }],
+                            systemInstruction: { parts: [{ text: systemInstruction }] },
+                            generationConfig: { 
+                                responseMimeType: "application/json",
+                                responseSchema: {
+                                    type: "OBJECT",
+                                    properties: {
+                                        recommendations: {
+                                            type: "ARRAY",
+                                            items: {
+                                                type: "OBJECT",
+                                                properties: {
+                                                    name: { type: "STRING" },
+                                                    category: { type: "STRING" },
+                                                    features: { type: "STRING" },
+                                                    estimated_cost: { type: "STRING" },
+                                                    korean_popular_menu: { type: "STRING" },
+                                                    distance_info: { type: "STRING" }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        })
+                    }
+                );
+
+                const data = await response.json();
+                if (!data.candidates || !data.candidates[0].content.parts[0].text) {
+                    throw new Error("Invalid response");
+                }
+                const recommendations = JSON.parse(data.candidates[0].content.parts[0].text).recommendations;
+                
+                renderResults(recommendations);
+            } catch (err) {
+                showError("주변 정보를 분석하는 데 실패했습니다. 잠시 후 다시 시도해 주세요.");
+                console.error(err);
+            } finally {
+                skeleton.classList.add('hidden');
+                btn.disabled = false;
+            }
+        }
+
+        async function fetchWithRetry(url, options, retries = 5) {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (response.ok) return response;
+                    if (response.status === 429) { 
+                        await new Promise(res => setTimeout(res, Math.pow(2, i) * 1000));
+                        continue;
+                    }
+                    throw new Error('API Error');
+                } catch (err) {
+                    if (i === retries - 1) throw err;
+                    await new Promise(res => setTimeout(res, Math.pow(2, i) * 1000));
+                }
+            }
+        }
+
+        function renderResults(list) {
+            const container = document.getElementById('results-container');
+            container.innerHTML = '';
+
+            list.forEach(item => {
+                const categoryIcon = item.category.includes('관광') ? '🏛️' : item.category.includes('음식') ? '🍽️' : '☕';
+                const card = document.createElement('div');
+                card.className = "bg-white rounded-2xl p-5 border border-gray-100 shadow-sm transition-all hover:shadow-md animate-in fade-in slide-in-from-bottom-2 duration-500";
+                card.innerHTML = `
+                    <div class="flex justify-between items-start mb-3">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xl">${categoryIcon}</span>
+                            <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">${item.category}</span>
+                        </div>
+                        <span class="text-xs text-gray-400 font-medium">🚶 ${item.distance_info}</span>
+                    </div>
+                    <h3 class="text-xl font-bold mb-2">${item.name}</h3>
+                    <p class="text-gray-600 text-sm leading-relaxed mb-4">"${item.features}"</p>
+                    
+                    <div class="grid grid-cols-1 gap-3 text-sm">
+                        <div class="flex items-start gap-2 bg-gray-50 p-3 rounded-xl">
+                            <span class="font-bold text-gray-800 shrink-0">💰 소요 비용</span>
+                            <span class="text-gray-600">${item.estimated_cost}</span>
+                        </div>
+                        <div class="flex items-start gap-2 bg-orange-50 p-3 rounded-xl">
+                            <span class="font-bold text-orange-800 shrink-0">⭐ 인기 메뉴</span>
+                            <span class="text-orange-700">${item.korean_popular_menu}</span>
+                        </div>
+                    </div>
+
+                    <button onclick="window.open('https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.name)}')" 
+                            class="w-full mt-5 bg-gray-100 text-gray-800 py-3 rounded-xl text-sm font-bold hover:bg-gray-200 transition-colors">
+                        지도에서 위치 보기
+                    </button>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function showError(msg) {
+            document.getElementById('error-message').innerText = msg;
+            document.getElementById('error-modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('error-modal').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
