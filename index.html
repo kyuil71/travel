@@ -24,6 +24,11 @@
         }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .scale-in { animation: scaleIn 0.3s ease-out; }
+        @keyframes scaleIn {
+            from { transform: scale(0.9); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-900 min-h-screen">
@@ -56,7 +61,7 @@
                 <h2 class="font-bold flex items-center gap-2 text-gray-800">🔑 API 설정</h2>
                 <button onclick="toggleSettings()" class="text-gray-400">✕</button>
             </div>
-            <p class="text-xs text-gray-500 mb-4">Gemini API 키를 입력해 주세요. (모델: gemini-flash-latest)</p>
+            <p class="text-xs text-gray-500 mb-4">Gemini API 키를 입력해 주세요. (모델: gemini-1.5-flash-latest)</p>
             <div class="space-y-3">
                 <input type="password" id="api-key-input" placeholder="AI Studio API 키 입력" 
                        class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
@@ -175,6 +180,7 @@
             } else {
                 badge.innerText = 'NOT SECURE (HTTP)';
                 badge.className = 'text-[10px] px-2 py-0.5 rounded-full font-bold bg-red-100 text-red-700';
+                showError("현재 사이트가 보안(HTTPS) 연결이 아닙니다. 이 경우 위치 인식이 실패할 확률이 높습니다.");
             }
         }
 
@@ -229,7 +235,6 @@
             };
 
             const fail = (err) => {
-                // 정확도 모드 실패 시 일반 모드로 재시도
                 if (geoOptions.enableHighAccuracy) {
                     geoOptions.enableHighAccuracy = false;
                     navigator.geolocation.getCurrentPosition(success, lastFail, geoOptions);
@@ -241,16 +246,14 @@
             const lastFail = (err) => {
                 statusDot.className = "bg-red-500 w-2.5 h-2.5 rounded-full";
                 errorHint.classList.remove('hidden');
-                
                 let msg = "위치 정보를 가져올 수 없습니다.";
                 if (window.location.protocol !== 'https:') {
-                    msg = "보안(HTTPS) 연결이 아니어서 위치 권한을 얻을 수 없습니다.";
+                    msg = "보안(HTTPS) 연결이 아니어서 위치 권한을 얻을 수 없습니다. 주소창 앞에 'https://'가 붙어 있는지 확인해 주세요.";
                 } else if (err.code === 1) {
-                    msg = "위치 권한 사용을 허용해 주세요.";
+                    msg = "위치 권한 사용이 거부되었습니다. 브라우저 설정에서 위치 권한을 허용해 주세요.";
                 } else if (err.code === 3) {
                     msg = "GPS 신호 탐색 시간이 초과되었습니다. 다시 시도해 주세요.";
                 }
-                
                 statusText.innerText = "위치 확인 오류";
                 errorHint.innerText = msg;
                 btn.disabled = true;
@@ -280,27 +283,15 @@
             const systemPrompt = `
                 당신은 전세계를 여행하는 한국인 가성비 여행 전문가입니다. 
                 현재 위치(위도: ${userLocation.lat}, 경도: ${userLocation.lng}) 주변 1.5km 이내에서 가성비 좋은 ${currentCategory} 장소를 5-7곳 추천하세요.
-                
-                반드시 JSON 형식으로만 답변하세요:
-                {
-                    "recommendations": [
-                        {
-                            "name": "장소명",
-                            "category": "종류",
-                            "features": "이곳만의 특징 및 가성비 포인트 설명",
-                            "estimated_cost": "예상 비용 (현지통화/원화)",
-                            "korean_popular_menu": "한국인 인기 메뉴 (없으면 N/A)",
-                            "distance_info": "도보 약 몇 분"
-                        }
-                    ]
-                }
+                반드시 JSON 형식으로만 답변하세요.
             `;
 
             const queryText = customPrompt || `현재 내 위치 주변에서 가성비 좋은 ${currentCategory} 장소들을 추천해 주세요.`;
 
             try {
+                // 모델명을 gemini-1.5-flash-latest로 수정하여 호환성 강화
                 const response = await fetchWithRetry(
-                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${storedApiKey}`,
+                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${storedApiKey}`,
                     {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -334,7 +325,16 @@
                 );
 
                 const data = await response.json();
-                if (data.error) throw new Error(data.error.message);
+                if (data.error) {
+                    let errorMsg = `API 서버 오류: ${data.error.message}`;
+                    if (data.error.status === "INVALID_ARGUMENT") errorMsg = "API 모델 설정 오류입니다. (gemini-1.5-flash-latest 확인)";
+                    if (data.error.status === "PERMISSION_DENIED") errorMsg = "API 키가 올바르지 않거나 활성화되지 않았습니다.";
+                    throw new Error(errorMsg);
+                }
+
+                if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
+                    throw new Error("AI가 유효한 응답을 생성하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+                }
 
                 const result = JSON.parse(data.candidates[0].content.parts[0].text);
                 renderResults(result.recommendations, !!customPrompt);
@@ -346,7 +346,7 @@
 
             } catch (err) {
                 console.error(err);
-                showError("AI 추천을 가져오지 못했습니다: " + err.message);
+                showError(err.message);
                 if (resultsContainer.innerHTML === '') emptyState.classList.remove('hidden');
             } finally {
                 skeleton.classList.add('hidden');
@@ -358,11 +358,9 @@
             const input = document.getElementById('ai-input');
             const text = input.value.trim();
             if (!text) return;
-
             const promptPrefix = type === 'edit' 
                 ? "이전 추천 리스트를 기반으로 다음 요청사항에 맞춰 다시 추천해줘: " 
                 : "추천된 장소들에 대해 혹은 주변 환경에 대해 다음 질문에 답해줘: ";
-            
             await getAIRecommendations(promptPrefix + text);
             input.value = '';
         }
@@ -372,11 +370,12 @@
                 try {
                     const response = await fetch(url, options);
                     if (response.ok) return response;
+                    const errData = await response.json().catch(() => ({}));
                     if (response.status === 429) {
                         await new Promise(res => setTimeout(res, 2000));
                         continue;
                     }
-                    throw new Error(`HTTP ${response.status}`);
+                    throw new Error(errData.error?.message || `HTTP ${response.status} 오류`);
                 } catch (err) {
                     if (i === retries - 1) throw err;
                     await new Promise(res => setTimeout(res, 1000));
@@ -387,7 +386,6 @@
         function renderResults(list, isAppend = false) {
             const container = document.getElementById('results-container');
             if (!isAppend) container.innerHTML = '';
-
             list.forEach(item => {
                 const icon = item.category.includes('관광') ? '🏛️' : item.category.includes('음식') ? '🍽️' : item.category.includes('산책') ? '🌳' : '☕';
                 const card = document.createElement('div');
@@ -402,7 +400,6 @@
                     </div>
                     <h3 class="text-xl font-bold mb-3 text-gray-900">${item.name}</h3>
                     <p class="text-gray-600 text-sm leading-relaxed mb-5 font-medium">${item.features}</p>
-                    
                     <div class="space-y-2.5">
                         <div class="flex items-center gap-3 bg-gray-50/80 p-3.5 rounded-2xl border border-gray-100">
                             <span class="text-xs font-bold text-gray-400 shrink-0 w-14 uppercase">Cost</span>
@@ -413,7 +410,6 @@
                             <span class="text-sm text-blue-800 font-bold">${item.korean_popular_menu}</span>
                         </div>
                     </div>
-
                     <button onclick="window.open('https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.name + ' ' + (userLocation ? userLocation.lat + ',' + userLocation.lng : ''))}')" 
                             class="w-full mt-6 bg-gray-900 text-white py-4 rounded-2xl text-sm font-bold active:scale-[0.96] transition-all shadow-lg shadow-gray-200">
                         지도로 길찾기
