@@ -26,17 +26,42 @@
         <div class="max-w-md mx-auto flex items-center justify-between">
             <div class="flex items-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-                <h1 class="font-bold text-lg">AI 가성비 여행 가이드</h1>
+                <h1 class="font-bold text-lg text-blue-600">Travel AI</h1>
             </div>
-            <button onclick="refreshLocation()" class="p-2 hover:bg-gray-100 rounded-full transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-gray-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path></svg>
-            </button>
+            <div class="flex gap-2">
+                <button onclick="toggleSettings()" class="p-2 hover:bg-gray-100 rounded-full transition-colors" title="API 설정">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-gray-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                </button>
+                <button onclick="refreshLocation()" class="p-2 hover:bg-gray-100 rounded-full transition-colors" title="위치 갱신">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-gray-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path></svg>
+                </button>
+            </div>
         </div>
     </header>
 
     <main class="max-w-md mx-auto p-4 pb-24">
+        
+        <!-- API Settings Panel (Hidden by default) -->
+        <div id="settings-panel" class="hidden bg-white border border-gray-200 rounded-2xl p-5 mb-6 shadow-sm">
+            <h2 class="font-bold mb-3 flex items-center gap-2">
+                🔑 API 설정
+            </h2>
+            <p class="text-xs text-gray-500 mb-4 leading-relaxed">
+                Gemini API 키가 필요합니다. 키는 브라우저에만 저장되며 외부로 전송되지 않습니다.
+            </p>
+            <div class="space-y-3">
+                <input type="password" id="api-key-input" placeholder="Gemini API 키를 입력하세요" 
+                       class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                <div class="flex gap-2">
+                    <button onclick="saveApiKey()" class="flex-1 bg-blue-600 text-white font-bold py-2.5 rounded-xl text-sm transition-all active:scale-95">저장하기</button>
+                    <button onclick="window.open('https://aistudio.google.com/app/apikey', '_blank')" 
+                            class="flex-1 bg-gray-100 text-gray-700 font-bold py-2.5 rounded-xl text-sm border border-gray-200">키 발급받기</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Location Status -->
-        <div id="location-status" class="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6 flex flex-col gap-2">
+        <div id="location-status" class="bg-blue-50 border border-blue-100 rounded-2xl p-4 mb-6 flex flex-col gap-2">
             <div class="flex items-center gap-3">
                 <div id="status-dot" class="animate-pulse bg-blue-400 w-2 h-2 rounded-full"></div>
                 <p id="status-text" class="text-sm text-blue-800 font-medium">위치 정보를 확인하고 있습니다...</p>
@@ -54,7 +79,11 @@
         <!-- Results Section -->
         <div id="results-container" class="space-y-6">
             <div id="empty-state" class="text-center py-10">
-                <p class="text-gray-400">버튼을 누르면 현재 위치 기반으로<br>AI가 가성비 코스를 추천해 드립니다.</p>
+                <div class="bg-gray-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+                </div>
+                <p class="text-gray-500 font-medium">버튼을 누르면 현재 위치 기반으로<br>AI가 가성비 코스를 추천해 드립니다.</p>
+                <p id="api-warning" class="text-xs text-red-500 mt-2 hidden">⚠️ API 키가 설정되지 않았습니다. 우측 상단 설정을 확인해 주세요.</p>
             </div>
         </div>
 
@@ -78,17 +107,42 @@
         <div class="bg-white rounded-2xl p-6 max-w-xs w-full text-center">
             <h3 class="font-bold text-lg mb-2">알림</h3>
             <p id="error-message" class="text-gray-600 text-sm mb-6">다시 시도해 주세요.</p>
-            <button onclick="closeModal()" class="w-full bg-gray-900 text-white py-3 rounded-xl font-bold">확인</button>
+            <button onclick="closeModal()" class="w-full bg-gray-900 text-white py-3 rounded-xl font-bold transition-all active:scale-95">확인</button>
         </div>
     </div>
 
     <script>
-        const apiKey = ""; 
         let userLocation = null;
+        let storedApiKey = localStorage.getItem('gemini_api_key') || "";
 
         window.onload = () => {
+            if (!storedApiKey) {
+                document.getElementById('settings-panel').classList.remove('hidden');
+                document.getElementById('api-warning').classList.remove('hidden');
+            } else {
+                document.getElementById('api-key-input').value = storedApiKey;
+            }
             refreshLocation();
         };
+
+        function toggleSettings() {
+            const panel = document.getElementById('settings-panel');
+            panel.classList.toggle('hidden');
+        }
+
+        function saveApiKey() {
+            const input = document.getElementById('api-key-input');
+            const key = input.value.trim();
+            if (key) {
+                localStorage.setItem('gemini_api_key', key);
+                storedApiKey = key;
+                document.getElementById('api-warning').classList.add('hidden');
+                toggleSettings();
+                showError("API 키가 안전하게 저장되었습니다.");
+            } else {
+                showError("올바른 키를 입력해 주세요.");
+            }
+        }
 
         function refreshLocation() {
             const statusText = document.getElementById('status-text');
@@ -114,7 +168,7 @@
                             lat: position.coords.latitude,
                             lng: position.coords.longitude
                         };
-                        statusText.innerText = `위치 확인 완료 (현재 시내 중심 기준)`;
+                        statusText.innerText = `위치 확인 완료`;
                         statusDot.className = "bg-green-500 w-2 h-2 rounded-full";
                         btn.disabled = false;
                     },
@@ -126,18 +180,18 @@
                         switch(error.code) {
                             case error.PERMISSION_DENIED:
                                 statusText.innerText = "위치 권한이 거부되었습니다.";
-                                errorHint.innerText = "브라우저 설정에서 위치 권한을 '허용'으로 변경해 주세요.";
+                                errorHint.innerText = "설정에서 위치 권한을 허용해 주세요.";
                                 break;
                             case error.POSITION_UNAVAILABLE:
-                                statusText.innerText = "위치 정보를 사용할 수 없습니다.";
-                                errorHint.innerText = "기기의 GPS가 켜져 있는지, 보안 연결(HTTPS) 상태인지 확인해 주세요.";
+                                statusText.innerText = "위치 정보를 알 수 없습니다.";
+                                errorHint.innerText = "GPS가 켜져 있는지 확인해 주세요.";
                                 break;
                             case error.TIMEOUT:
-                                statusText.innerText = "위치 확인 시간 초과.";
-                                errorHint.innerText = "신호가 약합니다. 다시 시도해 주세요.";
+                                statusText.innerText = "시간 초과.";
+                                errorHint.innerText = "다시 시도해 주세요.";
                                 break;
                             default:
-                                statusText.innerText = "알 수 없는 위치 오류.";
+                                statusText.innerText = "오류 발생.";
                                 break;
                         }
                     },
@@ -150,6 +204,11 @@
 
         async function getAIRecommendations() {
             if (!userLocation) return;
+            if (!storedApiKey) {
+                toggleSettings();
+                showError("API 키를 먼저 설정해 주세요.");
+                return;
+            }
 
             const resultsContainer = document.getElementById('results-container');
             const skeleton = document.getElementById('skeleton');
@@ -187,8 +246,9 @@
             const userQuery = `현재 내 위치는 위도 ${userLocation.lat}, 경도 ${userLocation.lng} 입니다. 주변에서 가성비 좋은 관광지와 맛집을 추천해 주세요.`;
 
             try {
+                // 사용자가 요청한 gemini-1.5-flash-latest 엔진 사용
                 const response = await fetchWithRetry(
-                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`,
+                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${storedApiKey}`,
                     {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -222,15 +282,22 @@
                 );
 
                 const data = await response.json();
-                if (!data.candidates || !data.candidates[0].content.parts[0].text) {
-                    throw new Error("Invalid response");
-                }
-                const recommendations = JSON.parse(data.candidates[0].content.parts[0].text).recommendations;
                 
+                if (data.error) {
+                    throw new Error(data.error.message || "API 오류 발생");
+                }
+
+                if (!data.candidates || !data.candidates[0].content.parts[0].text) {
+                    throw new Error("분석 결과를 가져올 수 없습니다.");
+                }
+
+                const recommendations = JSON.parse(data.candidates[0].content.parts[0].text).recommendations;
                 renderResults(recommendations);
+
             } catch (err) {
-                showError("주변 정보를 분석하는 데 실패했습니다. 잠시 후 다시 시도해 주세요.");
+                showError(`오류: ${err.message}`);
                 console.error(err);
+                emptyState.classList.remove('hidden');
             } finally {
                 skeleton.classList.add('hidden');
                 btn.disabled = false;
@@ -246,7 +313,11 @@
                         await new Promise(res => setTimeout(res, Math.pow(2, i) * 1000));
                         continue;
                     }
-                    throw new Error('API Error');
+                    if (response.status === 400 || response.status === 403) {
+                        const errData = await response.json();
+                        throw new Error(errData.error?.message || "API 키가 올바르지 않습니다.");
+                    }
+                    throw new Error('네트워크 오류');
                 } catch (err) {
                     if (i === retries - 1) throw err;
                     await new Promise(res => setTimeout(res, Math.pow(2, i) * 1000));
@@ -266,27 +337,27 @@
                     <div class="flex justify-between items-start mb-3">
                         <div class="flex items-center gap-2">
                             <span class="text-xl">${categoryIcon}</span>
-                            <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">${item.category}</span>
+                            <span class="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded uppercase">${item.category}</span>
                         </div>
-                        <span class="text-xs text-gray-400 font-medium">🚶 ${item.distance_info}</span>
+                        <span class="text-[11px] text-gray-400 font-medium">🚶 ${item.distance_info}</span>
                     </div>
-                    <h3 class="text-xl font-bold mb-2">${item.name}</h3>
+                    <h3 class="text-lg font-bold mb-2">${item.name}</h3>
                     <p class="text-gray-600 text-sm leading-relaxed mb-4">"${item.features}"</p>
                     
-                    <div class="grid grid-cols-1 gap-3 text-sm">
+                    <div class="grid grid-cols-1 gap-3 text-xs">
                         <div class="flex items-start gap-2 bg-gray-50 p-3 rounded-xl">
-                            <span class="font-bold text-gray-800 shrink-0">💰 소요 비용</span>
+                            <span class="font-bold text-gray-800 shrink-0">💰 예상 비용</span>
                             <span class="text-gray-600">${item.estimated_cost}</span>
                         </div>
                         <div class="flex items-start gap-2 bg-orange-50 p-3 rounded-xl">
                             <span class="font-bold text-orange-800 shrink-0">⭐ 인기 메뉴</span>
-                            <span class="text-orange-700">${item.korean_popular_menu}</span>
+                            <span class="text-orange-700 font-medium">${item.korean_popular_menu}</span>
                         </div>
                     </div>
 
                     <button onclick="window.open('https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.name)}')" 
-                            class="w-full mt-5 bg-gray-100 text-gray-800 py-3 rounded-xl text-sm font-bold hover:bg-gray-200 transition-colors">
-                        지도에서 위치 보기
+                            class="w-full mt-5 bg-gray-900 text-white py-3.5 rounded-xl text-sm font-bold transition-all active:scale-[0.98]">
+                        구글 지도로 이동
                     </button>
                 `;
                 container.appendChild(card);
